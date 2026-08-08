@@ -29,22 +29,22 @@ import {
 import { getAgentDisplayName } from "@/config/branding";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/calendar", label: "Calendar", icon: Calendar },
-  { href: "/social", label: "Social Media", icon: Megaphone },
+  { href: "/", label: "仪表盘", icon: LayoutDashboard },
+  { href: "/calendar", label: "日历", icon: Calendar },
+  { href: "/social", label: "社交媒体", icon: Megaphone },
 
-  { href: "/office", label: "🏢 Company", icon: Gamepad2, highlight: true },
-  { href: "/actions", label: "Quick Actions", icon: Zap },
-  { href: "/terminal", label: "Terminal", icon: SquareTerminal },
+  { href: "/office", label: "🏢 公司", icon: Gamepad2, highlight: true },
+  { href: "/actions", label: "快捷操作", icon: Zap },
+  { href: "/terminal", label: "终端", icon: SquareTerminal },
   { href: "/git", label: "Git", icon: GitFork },
-  { href: "/workflows", label: "Workflows", icon: Workflow },
-  { href: "/memory", label: "Memory", icon: Brain },
-  { href: "/files", label: "Files", icon: FolderOpen },
-  { href: "/cron", label: "Cron Jobs", icon: Timer },
+  { href: "/workflows", label: "工作流", icon: Workflow },
+  { href: "/memory", label: "记忆", icon: Brain },
+  { href: "/files", label: "文件", icon: FolderOpen },
+  { href: "/cron", label: "定时任务", icon: Timer },
 
-  { href: "/search", label: "Search", icon: Search },
-  { href: "/reports", label: "Reports", icon: FileBarChart },
-  { href: "/skills", label: "Skills", icon: Puzzle },
+  { href: "/search", label: "搜索", icon: Search },
+  { href: "/reports", label: "报告", icon: FileBarChart },
+  { href: "/skills", label: "技能", icon: Puzzle },
   { href: "/about", label: getAgentDisplayName(), icon: User },
 ];
 
