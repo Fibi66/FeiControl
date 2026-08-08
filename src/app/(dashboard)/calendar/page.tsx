@@ -1,14 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, CheckSquare, Square, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, CheckSquare, Square, ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from "lucide-react";
+import { EventModal, EventFormData } from "@/components/EventModal";
 
 interface CalendarEvent {
+  id?: string;
   key: string;
   date: string;
   time: string;
   title: string;
+  description?: string;
   allDay: boolean;
+  start: string;
+  end?: string;
+  color?: string;
 }
 
 interface Task {
@@ -214,6 +220,11 @@ export default function CalendarPage() {
   const [eventCompletions, setEventCompletions] = useState<EventCompletionState>({});
   const [togglingEventKeys, setTogglingEventKeys] = useState<Record<string, boolean>>({});
   const [togglingTaskIds, setTogglingTaskIds] = useState<Record<string, boolean>>({});
+  
+  // Event editing state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const week = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
 
@@ -282,18 +293,48 @@ export default function CalendarPage() {
     const currentWeek = getWeekDays(offset);
 
     try {
-      const [calRes, taskRes] = await Promise.all([
+      // Fetch both Google Calendar (khal) and local SQLite events
+      const [calRes, dbEventsRes, taskRes] = await Promise.all([
         fetch(`/api/calendar?from=${currentWeek.dates[0]}&to=${currentWeek.dates[6]}`),
+        fetch(`/api/events?startDate=${currentWeek.dates[0]}&endDate=${currentWeek.dates[6]}`),
         fetch("/api/tasks"),
       ]);
-      const [calendarPayload, taskPayload] = await Promise.all([
+      const [calendarPayload, dbEventsPayload, taskPayload] = await Promise.all([
         calRes.json().catch((): unknown => null),
+        dbEventsRes.json().catch((): unknown => null),
         taskRes.json().catch((): unknown => null),
       ]);
 
       if (calRes.ok) {
         const calendarData = normalizeCalendarData(calendarPayload);
-        setEvents(calendarData.events);
+        let allEvents = calendarData.events;
+
+        // Merge with SQLite events
+        if (dbEventsRes.ok && dbEventsPayload && Array.isArray(dbEventsPayload.events)) {
+          const dbEvents = dbEventsPayload.events.map((ev: any) => {
+            const startDate = new Date(ev.start);
+            const dateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
+            const timeStr = ev.allDay 
+              ? "All Day" 
+              : `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`;
+            
+            return {
+              id: ev.id,
+              key: ev.id, // Use DB id as key for local events
+              date: dateStr,
+              time: timeStr,
+              title: ev.title,
+              description: ev.description || undefined,
+              allDay: ev.allDay,
+              start: ev.start,
+              end: ev.end || undefined,
+              color: ev.color || undefined,
+            };
+          });
+          allEvents = [...allEvents, ...dbEvents];
+        }
+
+        setEvents(allEvents);
         setTodayStr(calendarData.today);
         setEventCompletions(
           await maybeMigrateLegacyEventCompletions(calendarData.completions)
@@ -417,6 +458,74 @@ export default function CalendarPage() {
       });
     }
   }, [eventCompletions]);
+
+  // Create new event
+  const handleCreateEvent = useCallback((date: string) => {
+    const [year, month, day] = date.split("-").map(Number);
+    setSelectedDate(new Date(year, month - 1, day));
+    setEditingEvent(null);
+    setIsModalOpen(true);
+  }, []);
+
+  // Edit existing event
+  const handleEditEvent = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingEvent(event);
+    setSelectedDate(null);
+    setIsModalOpen(true);
+  }, []);
+
+  // Delete event
+  const handleDeleteEvent = useCallback(async (eventId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      const response = await fetch(`/api/events/${eventId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete event");
+      }
+
+      // Refresh calendar data
+      await fetchData(weekOffset);
+    } catch (error) {
+      console.error("Failed to delete event:", error);
+      setCalendarError("Failed to delete event");
+    }
+  }, [fetchData, weekOffset]);
+
+  // Save event (create or update)
+  const handleSaveEvent = useCallback(async (formData: EventFormData) => {
+    try {
+      const isEditing = Boolean(formData.id);
+      const url = isEditing ? `/api/events/${formData.id}` : "/api/events";
+      const method = isEditing ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${isEditing ? "update" : "create"} event`);
+      }
+
+      // Close modal and refresh calendar
+      setIsModalOpen(false);
+      setEditingEvent(null);
+      setSelectedDate(null);
+      await fetchData(weekOffset);
+    } catch (error) {
+      console.error("Failed to save event:", error);
+      setCalendarError(`Failed to ${formData.id ? "update" : "create"} event`);
+    }
+  }, [fetchData, weekOffset]);
 
   useEffect(() => {
     void fetchData(weekOffset);
@@ -600,6 +709,20 @@ export default function CalendarPage() {
                 >
                   {shortDate(date)}
                 </div>
+                {/* Add Event Button */}
+                <button
+                  onClick={() => handleCreateEvent(date)}
+                  className="mt-2 w-full px-2 py-1 rounded-md text-xs font-medium transition-all hover:scale-105"
+                  style={{
+                    backgroundColor: "var(--accent)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                  }}
+                  title="Add new event"
+                >
+                  <Plus className="w-3 h-3 inline mr-1" />
+                  Add Event
+                </button>
               </div>
 
               {/* Events */}
@@ -617,22 +740,42 @@ export default function CalendarPage() {
                     return (
                       <div
                         key={eventKey}
-                        onClick={() => {
-                          if (!isEventToggling) {
-                            void toggleEventCompletion(event);
-                          }
-                        }}
-                        className={`group p-2 rounded-lg text-xs transition-all duration-200 ease-out hover:scale-[1.06] hover:shadow-xl hover:shadow-black/10 hover:-translate-y-1 hover:brightness-110 ${
+                        className={`group relative p-2 rounded-lg text-xs transition-all duration-200 ease-out hover:scale-[1.06] hover:shadow-xl hover:shadow-black/10 hover:-translate-y-1 hover:brightness-110 ${
                           isEventToggling ? "cursor-not-allowed" : "cursor-pointer"
                         }`}
                         style={{
-                          backgroundColor: isToday ? "rgba(52,199,89,0.08)" : "var(--card-elevated)",
+                          backgroundColor: event.color || (isToday ? "rgba(52,199,89,0.08)" : "var(--card-elevated)"),
                           border: `1px solid ${isToday ? "rgba(52,199,89,0.2)" : "var(--border)"}`,
                           opacity: isEventToggling ? 0.6 : isEventCompleted ? 0.72 : 1,
                           ...(isToday ? { boxShadow: "0 0 8px rgba(52,199,89,0.25)" } : {}),
                         }}
                       >
-                        <div className="flex items-start gap-2">
+                        {/* Action buttons - show on hover */}
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <button
+                            onClick={(e) => event.id && handleEditEvent(event, e)}
+                            className="p-1 rounded bg-gray-800/90 hover:bg-gray-700 transition-colors"
+                            title="Edit event"
+                          >
+                            <Pencil className="w-3 h-3" style={{ color: "#3b82f6" }} />
+                          </button>
+                          <button
+                            onClick={(e) => event.id && handleDeleteEvent(event.id, e)}
+                            className="p-1 rounded bg-gray-800/90 hover:bg-gray-700 transition-colors"
+                            title="Delete event"
+                          >
+                            <Trash2 className="w-3 h-3" style={{ color: "#ef4444" }} />
+                          </button>
+                        </div>
+
+                        <div
+                          onClick={() => {
+                            if (!isEventToggling) {
+                              void toggleEventCompletion(event);
+                            }
+                          }}
+                          className="flex items-start gap-2"
+                        >
                           <button
                             type="button"
                             title={isEventCompleted ? "Click to mark as incomplete" : "Click to mark as completed"}
@@ -672,6 +815,14 @@ export default function CalendarPage() {
                             >
                               {extractDisplayTitle(event.title)}
                             </div>
+                            {event.description && (
+                              <div
+                                className="mt-1 text-xs opacity-70"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                {event.description.slice(0, 50)}{event.description.length > 50 ? "..." : ""}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -753,6 +904,31 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+
+      {/* Event Modal */}
+      <EventModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEvent(null);
+          setSelectedDate(null);
+        }}
+        onSave={handleSaveEvent}
+        initialData={
+          editingEvent
+            ? {
+                id: editingEvent.id,
+                title: editingEvent.title,
+                description: editingEvent.description || "",
+                start: editingEvent.start,
+                end: editingEvent.end || "",
+                allDay: editingEvent.allDay,
+                color: editingEvent.color || "#10b981",
+              }
+            : undefined
+        }
+        selectedDate={selectedDate || undefined}
+      />
     </div>
   );
 }
