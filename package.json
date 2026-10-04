@@ -9,6 +9,7 @@
     "start:local": "next start -H 0.0.0.0",
     "start": "next start -H 0.0.0.0",
     "start:public": "node scripts/dev-server.cjs --port 4731",
+    "check:encoding": "node scripts/check-encoding.js",
     "lint": "eslint"
   },
   "dependencies": {
