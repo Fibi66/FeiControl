@@ -14,6 +14,7 @@ import {
   Settings,
   Calendar,
   Share2,
+  Network,
   Menu,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const dockItems = [
   { href: "/social", label: "Social Media", icon: Share2 },
   { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/memory", label: "Reports", icon: Brain },
+  { href: "/memory-graph", label: "Memory Map", icon: Network },
   { href: "/office", label: "3D Office", icon: Building2 },
   { href: "/cron", label: "Cron Jobs", icon: Clock },
   { href: "/skills", label: "Skills", icon: Puzzle },

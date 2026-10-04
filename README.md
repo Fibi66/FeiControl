@@ -8,6 +8,27 @@ FeiControl is a real-time dashboard that sits alongside your OpenClaw installati
 
 ---
 
+## 🧠 Memory Graph
+
+An interactive **3D galaxy** of everything your agents have written down — docs,
+daily notes, distilled memories and wiki pages — linked by timeline and citation
+edges. Click any node to read its excerpt and load the full note.
+
+- **Incremental rebuild** — each agent domain is hashed, only changed domains are re-scanned
+- **Stale-while-revalidate** — a stale snapshot is served instantly while a rebuild runs in the background
+- **Atomic writes** — `*.tmp` + rename, with an `EPERM` retry loop that survives Windows file locking
+- **Works without OpenClaw** — ships with a synthetic demo dataset, so a fresh clone still renders a graph
+
+Open **Memory Map** in the sidebar, or build the snapshot by hand:
+
+```bash
+npm run graph:build      # writes public/memory-graph-data.json
+```
+
+Full details: [docs/MEMORY-GRAPH.md](./docs/MEMORY-GRAPH.md)
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
