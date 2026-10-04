@@ -67,3 +67,10 @@ next-env.d.ts
 
 # backup files
 *.bak
+
+# Memory Graph runtime artifact.
+# Rebuilt from the local OpenClaw workspace by src/lib/memory-graph/graph-server.ts,
+# so it contains whatever the operator's own notes contain. Not for committing —
+# a synthetic fallback (public/memory-graph-demo.json) ships instead.
+public/memory-graph-data.json
+.memory-graph-state.json
